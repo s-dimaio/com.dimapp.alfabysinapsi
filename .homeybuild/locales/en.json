@@ -1,0 +1,19 @@
+{
+  "pair": {
+    "welcome": {
+      "title": "IP Address / Hostname",
+      "text": "Please insert the IP address or the Hostname of your Alfa by Sinapsi device."
+    },
+    "button": "Continue",
+    "textbox": "Insert IP Address or Hostname",
+    "error": {
+      "ipWrong": "Error: invalid IP address or Hostname",
+      "ipEmpty": "Error: the field cannot be empty"
+    }
+  },
+  "error": {
+    "generic": "Error: if the error persists try reconnecting the device",
+    "ipWrong": "Error: invalid IP address or Hostname. Change them from the Settings",
+    "ipEmpty": "Error: the field cannot be empty. Insert it from the Settings"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "pair": {
+    "welcome": {
+      "title": "Indirizzo IP / Hostname",
+      "text": "Inserisci l'indirizzo IP oppure l'Hostname del tuo dispositivo Alfa by Sinapsi."
+    },
+    "button": "Continua",
+    "textbox": "Inserisci l'indirizzo IP o l'Hostname",
+    "error": {
+      "ipWrong": "Errore: indirizzo IP o Hostname non validi",
+      "ipEmpty": "Errore: il campo non può essere vuoto"
+    }
+  },
+  "error": {
+    "generic": "Se l'errore persiste prova a ricollegare il dispositivo",
+    "ipWrong": "Indirizzo IP o Hostname non validi. Modificali dalle Impostazioni",
+    "ipEmpty": "L'indirizzo IP non può essere vuoto. Inseriscilo dalle Impostazioni"
+  }
+}
