@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-# com.dimapp.alfabysinapsi
-=======
 # Alfa by Sinapsi
 
 Homey app for Alfa by Sinapsi
@@ -74,4 +71,4 @@ If you would like to contribute to this project, please follow these steps:
 ## License
 
 This project is released under the GNU License. For full details, please see the [LICENSE](LICENSE) file.
->>>>>>> master
+
