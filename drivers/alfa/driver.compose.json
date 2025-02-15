@@ -1,0 +1,75 @@
+{
+  "name": {
+    "en": "Alfa"
+  },
+  "class": "sensor",
+  "capabilities": [
+    "measure_power",
+    "energy_phase",
+    "meter_power.imported",
+    "meter_power.exported",
+    "alarm_generic"
+  ],
+  "capabilitiesOptions": {
+    "measure_power": {
+      "title": {
+        "en": "Current usage",
+        "it": "Consumo attuale"
+      }
+    },
+    "meter_power.imported": {
+      "decimals": 3,
+      "title": {
+        "en": "Total imported energy",
+        "it": "Energia prelevata totale"
+      }
+    },
+    "meter_power.exported": {
+      "decimals": 3,
+      "title": {
+        "en": "Total exported energy",
+        "it": "Energia immessa totale"
+      }
+    },
+    "alarm_generic": {
+      "preventTag": true,
+      "title": {
+        "en": "Power disconnect alarm",
+        "it": "Avviso di distacco"
+      }
+    }
+  },
+  "platforms": [
+    "local",
+    "cloud"
+  ],
+  "connectivity": [
+    "cloud"
+  ],
+  "images": {
+    "small": "{{driverAssetsPath}}/images/small.png",
+    "large": "{{driverAssetsPath}}/images/large.png",
+    "xlarge": "{{driverAssetsPath}}/images/xlarge.png"
+  },
+  "energy": {
+    "cumulative": true,
+    "cumulativeImportedCapability": "meter_power.imported",
+    "cumulativeExportedCapability": "meter_power.exported"
+  },
+  "pair": [
+    {
+      "id": "alfa_pair"
+    },
+    {
+      "id": "list_alfa_devices",
+      "template": "list_devices",
+      "navigation": {
+        "next": "add_alfa_devices"
+      }
+    },
+    {
+      "id": "add_alfa_devices",
+      "template": "add_devices"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+    "type": "string",
+    "title": { 
+        "en": "Time Slot",
+        "it": "Fascia Oraria"
+    },
+    "getable": true,
+    "setable": true,
+    "uiComponent": "sensor",
+    "icon": "/assets/ic_energy_phase.svg"
+}

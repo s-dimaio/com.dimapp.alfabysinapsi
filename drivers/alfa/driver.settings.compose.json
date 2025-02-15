@@ -1,0 +1,22 @@
+[
+    {
+        "type": "group",
+        "label": {
+            "en": "Device details"
+        },
+        "children": [
+            {
+                "id": "ipAddress",
+                "type": "text",
+                "label": {
+                    "en": "IP Address / Hostname",
+                    "it": "Indirizzo IP / Hostname"
+                },
+                "hint": {
+                    "en": "IP Address or Hostname of your Alfa by Sinpasi device.",
+                    "it": "Indirizzo IP o Hostname del tuo dispositivo Alfa by Sinapsi."
+                }
+            }
+        ]
+    }
+]
