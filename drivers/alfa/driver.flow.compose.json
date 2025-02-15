@@ -1,0 +1,65 @@
+{
+  "triggers": [
+    {
+      "id": "disconnection_warning",
+      "title": {
+        "en": "Disconnection warning",
+        "it": "Avviso di disconnessione"
+      },
+      "hint": {
+        "en": "Event triggered every disconnection warning",
+        "it": "Evento scatenato ad ogni avviso di disconnessione"
+      },
+      "tokens": [
+        {
+          "type": "number",
+          "name": "seconds",
+          "title": {
+            "en": "Seconds to deconnection",
+            "it": "Secondi alla disconnessione"
+          },
+          "example": {
+            "en": "120",
+            "it": "120"
+          }
+        }
+      ]
+    },
+    {
+      "id": "first_disconnection_warning",
+      "title": {
+        "en": "First disconnection warning",
+        "it": "Primo avviso di disconnessione"
+      },
+      "hint": {
+        "en": "Event triggered only the first disconnection warning",
+        "it": "Evento scatenato solo al primo avviso di disconnessione"
+      },
+      "tokens": [
+        {
+          "type": "number",
+          "name": "seconds",
+          "title": {
+            "en": "Seconds to deconnection",
+            "it": "Secondi alla disconnessione"
+          },
+          "example": {
+            "en": "120",
+            "it": "120"
+          }
+        }
+      ]
+    },
+    {
+      "id": "stop_warning",
+      "title": {
+        "en": "Stop disconnection warning",
+        "it": "Avviso di disconnessione terminato"
+      },
+      "hint": {
+        "en": "Event triggered when disconnection warning ends",
+        "it": "Evento scatenato quando l'avviso di disconnessione termina"
+      }
+    }
+  ]
+}

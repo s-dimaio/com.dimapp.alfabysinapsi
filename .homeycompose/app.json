@@ -1,0 +1,30 @@
+{
+  "id": "com.dimapp.alfabysinapsi",
+  "version": "1.0.0",
+  "compatibility": ">=5.0.0",
+  "sdk": 3,
+  "platforms": [
+    "local",
+    "cloud"
+  ],
+  "name": {
+    "en": "Alfa by Sinapsi"
+  },
+  "description": {
+    "en": "Homey app for Alfa by Sinapsi"
+  },
+  "category": [
+    "energy"
+  ],
+  "permissions": [],
+  "images": {
+    "small": "/assets/images/small.png",
+    "large": "/assets/images/large.png",
+    "xlarge": "/assets/images/xlarge.png"
+  },
+  "author": {
+    "name": "Simone Di Maio",
+    "email": "simone.dimaio77@gmail.com"
+  },
+  "brandColor": "#00baff"
+}
