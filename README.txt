@@ -1,0 +1,3 @@
+Keep your energy consumption under control with real-time monitoring of your Alfa power meter. Track instant power usage, cumulative energy consumption and phase information directly from Homey.
+
+Create smart automations that respond to power usage changes, receive alerts when consumption gets too high, and get notified about potential disconnections before they happen. Perfect for managing your energy costs and preventing unexpected outages.
