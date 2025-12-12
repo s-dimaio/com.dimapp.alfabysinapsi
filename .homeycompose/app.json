@@ -1,17 +1,16 @@
 {
   "id": "com.dimapp.alfabysinapsi",
-  "version": "1.0.0",
+  "version": "1.6.0",
   "compatibility": ">=5.0.0",
   "sdk": 3,
   "platforms": [
-    "local",
-    "cloud"
+    "local"
   ],
   "name": {
     "en": "Alfa by Sinapsi"
   },
   "description": {
-    "en": "Homey app for Alfa by Sinapsi"
+    "en": "Homey app for Alfa by Sinapsi power meter"
   },
   "category": [
     "energy"
@@ -26,5 +25,27 @@
     "name": "Simone Di Maio",
     "email": "simone.dimaio77@gmail.com"
   },
-  "brandColor": "#00baff"
+  "brandColor": "#00baff",
+  "source": "https://github.com/s-dimaio/com.dimapp.alfabysinapsi",
+  "bugs": {
+    "url": "https://github.com/s-dimaio/com.dimapp.alfabysinapsi/issues"
+  },
+  "api": {
+    "getLogStatus": {
+      "method": "GET",
+      "path": "/log/status"
+    },
+    "getLogDownloadFile": {
+      "method": "GET",
+      "path": "/log/download/:index"
+    },
+    "deleteLogFile": {
+      "method": "DELETE",
+      "path": "/log/:index"
+    },
+    "deleteAllLogs": {
+      "method": "DELETE",
+      "path": "/log/all"
+    }
+  }
 }

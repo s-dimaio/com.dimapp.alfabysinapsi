@@ -20,31 +20,30 @@
     "meter_power.imported": {
       "decimals": 3,
       "title": {
-        "en": "Total imported energy",
-        "it": "Energia prelevata totale"
+        "en": "Imported energy",
+        "it": "Energia prelevata"
       }
     },
     "meter_power.exported": {
       "decimals": 3,
       "title": {
-        "en": "Total exported energy",
-        "it": "Energia immessa totale"
+        "en": "Exported energy",
+        "it": "Energia immessa"
       }
     },
     "alarm_generic": {
       "preventTag": true,
       "title": {
-        "en": "Power disconnect alarm",
+        "en": "Power disconnect",
         "it": "Avviso di distacco"
       }
     }
   },
   "platforms": [
-    "local",
-    "cloud"
+    "local"
   ],
   "connectivity": [
-    "cloud"
+    "lan"
   ],
   "images": {
     "small": "{{driverAssetsPath}}/images/small.png",

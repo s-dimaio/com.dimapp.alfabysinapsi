@@ -1,41 +1,121 @@
 const ModbusRTU = require("modbus-serial");
 const { TaskScheduler } = require("./TaskScheduler");
+const EventEmitter = require('events');
 const config = require("./config/config");
 
-class SinapsiConnect {
+class SinapsiConnect extends EventEmitter {
   /**
    * Creates an instance of SinapsiConnect.
    * 
    * @constructor
    * @param {Object} homey - The Homey instance.
    * @param {string} ip - The IP address of the Modbus server.
-   * @param {number} [updateInterval=60000] - The interval in milliseconds for updating data.
+   * @param {number} [updateInterval=30000] - The interval in milliseconds for updating data.
    * @param {boolean} [showLog=false] - Whether to show log messages.
+   * @param {boolean} [showEnergyMonitoring=true] - Whether to include energy monitoring sensors.
+   * @param {Object} [fileLogger=null] - FileLogger instance for persistent logging.
    * 
    * @example
-   * const sinapsiConnect = new SinapsiConnect(homeyInstance, '192.168.1.100', 60000, true);
+   * const sinapsiConnect = new SinapsiConnect(homeyInstance, '192.168.1.100', 30000, true, true);
    */
-  constructor(homey, ip, updateInterval = 60000, showLog = false) {
+  constructor(homey, ip, updateInterval = 30000, showLog = false, showEnergyMonitoring = true, fileLogger = null) {
+    super();
+    
     if (!ip) {
       throw new Error("IP address is required");
     }
     
+    // Set max listeners to prevent memory leak warnings
+    this.setMaxListeners(20);
+    
     this.client = new ModbusRTU();
-    this.scheduler = new TaskScheduler(homey, this.readData.bind(this), updateInterval, showLog);
     this.eventDate = undefined;
     this.remainingDisconnectionTime = undefined;
     this.warningTriggered = false;
     config.host = ip;
     this.homey = homey;
     this.showLog = showLog;
+    this.fileLogger = fileLogger; // FileLogger for persistent logging
+    
+    // Freeze sensors array to prevent modifications and optimize memory
+    this.sensors = Object.freeze(
+      config.sensors.filter(sensor => 
+        showEnergyMonitoring || sensor.id !== "meter_power.exported"
+      )
+    );
+    
+    // State management flags
+    this.isReading = false;
+    this.isConnected = false;
+    this.reconnectAttempts = 0;
+    this.maxReconnectAttempts = 10; // Increased from 5 (HA pattern: more resilient)
+    this.reconnectDelay = 5000; // Reduced from 10s to 5s for faster recovery
+    this.reconnectTimeouts = []; // Track reconnection timeouts for cleanup
+    this.connectionCheckInterval = null; // Periodic connection health check
+    
+    // Diagnostic counters for debugging
+    this.diagnostics = {
+      totalReadCycles: 0,
+      successfulReadCycles: 0,
+      failedReadCycles: 0,
+      lastSuccessTime: null,
+      lastFailTime: null,
+      lastError: null,
+      consecutiveFailures: 0,
+      socketResets: 0,
+      schedulerRestarts: 0
+    };
+    
+    // Create scheduler after initializing everything
+    this.scheduler = new TaskScheduler(homey, this.readData.bind(this), updateInterval, showLog);
 
     this.client.on('error', err => {
-      console.error("Communication error:", err);
+      const errorMsg = err.message || String(err);
+      this._logError('CLIENT', `Communication error: ${errorMsg}`);
+      this.diagnostics.lastError = errorMsg;
+      this.isConnected = false;
       this.client.close(() => {
-        this._log("Connection closed. Attempting to reconnect...");
-        this.connectModbus();
+        this._logInfo('CLIENT', 'Connection closed after error. Attempting to reconnect...');
+        this._scheduleReconnect('client error');
       });
     });
+    // NOTE: socket handlers are attached after a successful connect in connectModbus()
+  }
+
+  /**
+   * Schedules a reconnection attempt with deduplication
+   * @param {string} reason - The reason for reconnection
+   */
+  _scheduleReconnect(reason) {
+    // Avoid scheduling multiple reconnections
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      this._logError('RECONNECT', `Max reconnection attempts (${this.maxReconnectAttempts}) reached. Giving up.`, this.getDiagnostics());
+      return;
+    }
+    
+    // Check if reconnection is already scheduled
+    if (this.reconnectTimeouts.length > 0) {
+      this._logInfo('RECONNECT', 'Reconnection already scheduled, skipping duplicate');
+      return;
+    }
+    
+    this.reconnectAttempts++;
+    this._logInfo('RECONNECT', `Scheduling reconnection attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} (reason: ${reason})`);
+    
+    if (this.fileLogger) {
+      this.fileLogger.recordReconnection(this.reconnectAttempts, this.maxReconnectAttempts, reason);
+    }
+    
+    const timeoutId = this.homey.setTimeout(() => {
+      // Remove this timeout from the array
+      const index = this.reconnectTimeouts.indexOf(timeoutId);
+      if (index > -1) {
+        this.reconnectTimeouts.splice(index, 1);
+      }
+      this.connectModbus();
+    }, this.reconnectDelay);
+    
+    this.reconnectTimeouts.push(timeoutId);
   }
 
   _log(...args) {
@@ -46,6 +126,175 @@ class SinapsiConnect {
     }
   }
 
+  _logError(component, message, details = null) {
+    console.error(`[SINAPSI-CONNECT] [${component}] ${message}`);
+    if (this.fileLogger) {
+      this.fileLogger.error(`SINAPSI-${component}`, message, details);
+    }
+  }
+
+  _logWarn(component, message, details = null) {
+    console.warn(`[SINAPSI-CONNECT] [${component}] ${message}`);
+    if (this.fileLogger) {
+      this.fileLogger.warn(`SINAPSI-${component}`, message, details);
+    }
+  }
+
+  _logInfo(component, message, details = null) {
+    this._log(message);
+    if (this.fileLogger) {
+      this.fileLogger.info(`SINAPSI-${component}`, message, details);
+    }
+  }
+
+  /**
+   * Returns diagnostic information for debugging
+   */
+  getDiagnostics() {
+    return {
+      ...this.diagnostics,
+      isConnected: this.isConnected,
+      isReading: this.isReading,
+      reconnectAttempts: this.reconnectAttempts,
+      schedulerRunning: this.scheduler?.isScheduled || false,
+      pendingTimeouts: this.reconnectTimeouts.length,
+      socketHealthy: this._isConnectionHealthy()
+    };
+  }
+
+  /**
+   * Checks if the TCP socket connection is truly healthy (HA pattern)
+   * Less aggressive check: socket.readable/writable can be false during idle
+   * without meaning the connection is actually broken.
+   * @returns {boolean} - True if connection appears healthy
+   */
+  _isConnectionHealthy() {
+    if (!this.client) return false;
+    if (!this.isConnected) return false;
+    
+    // Check if client reports open
+    if (!this.client.isOpen) return false;
+    
+    // Only check socket.destroyed - readable/writable are unreliable during idle
+    const socket = this.client._socket;
+    if (socket && socket.destroyed) return false;
+    
+    return true;
+  }
+
+  /**
+   * Ensures connection is established before operations (HA pattern: lazy reconnection)
+   * @returns {Promise<boolean>} - True if connected, false otherwise
+   */
+  async ensureConnected() {
+    // Check if connection is truly healthy
+    if (this.isConnected && this._isConnectionHealthy()) {
+      return true;
+    }
+    
+    // Connection not healthy, mark as disconnected (only log if was previously connected)
+    if (this.isConnected && !this._isConnectionHealthy()) {
+      const reason = !this.client ? 'no client' : 
+                     !this.client.isOpen ? 'client not open' : 
+                     (this.client._socket?.destroyed ? 'socket destroyed' : 'unknown');
+      this._logWarn('CONNECTION', `Connection unhealthy (${reason}), will attempt reconnection`);
+      this.isConnected = false;
+      
+      if (this.fileLogger) {
+        this.fileLogger.logConnectionStateChange('connected', 'disconnected', `unhealthy: ${reason}`);
+      }
+    }
+    
+    // Try to reconnect if not connected
+    if (!this.isConnected) {
+      this._logInfo('CONNECTION', 'ensureConnected: attempting to establish connection...');
+      
+      try {
+        // Close existing client if any
+        if (this.client && this.client.isOpen) {
+          try {
+            this.client.close(() => {});
+          } catch (e) { /* ignore */ }
+        }
+        
+        // Create fresh client
+        this.client = new (require("modbus-serial"))();
+        
+        await this.client.connectTCP(config.host, { port: config.port });
+        
+        this.client.setTimeout(5000);
+        this.client.setID(1);
+        this.isConnected = true;
+        this.reconnectAttempts = 0;
+        this.diagnostics.consecutiveFailures = 0;
+        
+        // Setup socket handlers
+        this._setupSocketHandlers();
+        
+        this._logInfo('CONNECTION', 'ensureConnected: connection established successfully');
+        
+        if (this.fileLogger) {
+          this.fileLogger.logConnectionStateChange('disconnected', 'connected', 'ensureConnected success');
+        }
+        
+        return true;
+      } catch (err) {
+        this._logError('CONNECTION', `ensureConnected failed: ${err.message}`);
+        this.isConnected = false;
+        this.diagnostics.lastError = err.message;
+        return false;
+      }
+    }
+    
+    return this.isConnected;
+  }
+
+  /**
+   * Setup socket event handlers with TCP keep-alive (extracted for reuse)
+   */
+  _setupSocketHandlers() {
+    const socket = this.client._socket;
+    if (!socket) return;
+    
+    // Remove all previous listeners to prevent duplicates
+    socket.removeAllListeners('timeout');
+    socket.removeAllListeners('close');
+    socket.removeAllListeners('error');
+    
+    // Enable TCP Keep-Alive to detect dead connections (HA pattern)
+    socket.setKeepAlive(true, 30000); // Ping every 30 seconds
+    
+    // Attach new handlers
+    socket.on('timeout', () => {
+      this._logWarn('SOCKET', 'Socket timeout detected');
+      this.diagnostics.socketResets++;
+      const wasConnected = this.isConnected;
+      this.isConnected = false;
+      
+      if (wasConnected && this.fileLogger) {
+        this.fileLogger.logConnectionStateChange('connected', 'disconnected', 'socket timeout');
+      }
+      
+      try { socket.end(); } catch (e) { /* ignore */ }
+    });
+    
+    socket.on('close', () => {
+      this._logWarn('SOCKET', 'Socket closed');
+      this.diagnostics.socketResets++;
+      const wasConnected = this.isConnected;
+      this.isConnected = false;
+      
+      if (wasConnected && this.fileLogger) {
+        this.fileLogger.logConnectionStateChange('connected', 'disconnected', 'socket closed');
+      }
+    });
+    
+    socket.on('error', (err) => {
+      this._logError('SOCKET', `Socket error: ${err.message}`);
+      this.diagnostics.lastError = err.message;
+      this.isConnected = false;
+    });
+  }
 
   /**
    * Checks if the Modbus device can be connected to without errors.
@@ -77,21 +326,53 @@ class SinapsiConnect {
    */
   connectModbus() {
     if (!config.host) {
+      this._logError('CONNECT', 'Modbus server IP address is not set');
       throw new Error("Modbus server IP address is not set");
     }
 
+    this._logInfo('CONNECT', `Attempting connection to ${config.host}:${config.port}`);
+
     this.client.connectTCP(config.host, { port: config.port })
       .then(() => {
-        this._log(`Connected to device ${config.name}`);
+        const oldState = this.isConnected;
+        this._logInfo('CONNECT', `Connected to device ${config.name}`);
+        
+        // Set Modbus timeout to prevent indefinite hangs
+        this.client.setTimeout(5000);
         this.client.setID(1);
-        this.readData();
+        this.isConnected = true;
+        
+        // Log state change if was disconnected
+        if (!oldState && this.fileLogger) {
+          this.fileLogger.logConnectionStateChange('disconnected', 'connected', 'TCP connection established');
+        }
+        
+        // Reset reconnection counters
+        if (this.reconnectAttempts > 0) {
+          this._logInfo('CONNECT', `Reconnected after ${this.reconnectAttempts} attempts`);
+        }
+        this.reconnectAttempts = 0;
+        this.diagnostics.consecutiveFailures = 0;
+
+        // Setup socket handlers with TCP keep-alive
+        this._setupSocketHandlers();
+
+        // Ensure the scheduler is running once connected (start it if it was not started)
+        if (this.scheduler && !this.scheduler.isScheduled) {
+          this._logInfo('SCHEDULER', 'Connection established, starting scheduler.');
+          this.diagnostics.schedulerRestarts++;
+          this.scheduler.start();
+        }
 
         return true;
       })
       .catch(err => {
-        console.error("Connection error:", err);
-        //this.homey.setTimeout(this.connectModbus.bind(this), 5000);
-
+        this._logError('CONNECT', `Connection error: ${err.message}`);
+        this.diagnostics.lastError = err.message;
+        this.isConnected = false;
+        
+        this._scheduleReconnect('connection failed');
+        
         return false;
       });
   }
@@ -102,63 +383,235 @@ class SinapsiConnect {
    * Emits 'disconnectionWarning' and 'firstDisconnectionWarning' events when appropriate.
    * @returns {Promise<Array>} A promise that resolves with the sensor data array.
    */
-  readData() {
+  async readData() {
+    this.diagnostics.totalReadCycles++;
+    
+    // Protection against concurrent calls
+    if (this.isReading) {
+      this._logWarn('READ', '⚠️ Read operation already in progress, skipping');
+      return [];
+    }
+
+    this.isReading = true;
+    
+    // HA Pattern: Ensure connection before every read cycle
+    const connected = await this.ensureConnected();
+    if (!connected) {
+      this._logWarn('READ', 'Could not establish connection, skipping read cycle');
+      this.diagnostics.failedReadCycles++;
+      this.diagnostics.consecutiveFailures++;
+      this.isReading = false;
+      
+      // Log if too many consecutive failures
+      if (this.diagnostics.consecutiveFailures === 5) {
+        this._logError('READ', 'WARNING: 5 consecutive read failures', this.getDiagnostics());
+      } else if (this.diagnostics.consecutiveFailures === 20) {
+        this._logError('READ', 'CRITICAL: 20 consecutive read failures', this.getDiagnostics());
+      }
+      
+      return [];
+    }
+
+    const startTime = Date.now();
     const sensorDataArray = [];
-    const promises = [];
+    let readErrors = 0;
+    let powerValue = null;
 
-    config.sensors.forEach(sensor => {
-      const promise = this.client.readHoldingRegisters(sensor.address, sensor.count)
-        .then(data => {
-          let value;
-          if (sensor.type === "uint32") {
-            value = (data.data[0] << 16) | data.data[1];
-          } else {
-            value = data.data[0];
+    try {
+      // HA Pattern: Read each sensor, continue on individual errors
+      for (const sensor of this.sensors) {
+        const result = await this._readSingleSensor(sensor);
+        
+        if (result === null) {
+          readErrors++;
+          // HA Pattern: Skip failed sensor, try next one
+          // Connection state is already handled by _readSingleSensor
+          // ensureConnected() at the start of next cycle will handle reconnection if needed
+          continue;
+        }
+        
+        // Track power value for diagnostics
+        if (sensor.id === "measure_power") {
+          powerValue = result.value;
+        }
+
+        if (sensor.id === "alarm_generic") {
+          // Gestione robusta del valore sentinella:
+          // Il dispositivo può restituire -1 (int16) o 65535 (uint16) per "nessun allarme"
+          // Normalizziamo entrambi a -1 per consistenza
+          this.eventDate = (result.value === -1 || result.value === 65535) ? -1 : result.value;
+        } else if (sensor.id === "energy_detachment") {
+          this.remainingDisconnectionTime = result.value;
+        }
+
+        this._log(`${sensor.id} - ${sensor.name}: ${result.value} ${sensor.unit || ''}`);
+        sensorDataArray.push(result);
+      }
+      
+      const duration = Date.now() - startTime;
+      
+      // Determine if this was a successful cycle
+      const wasSuccessful = sensorDataArray.length > 0;
+      
+      if (wasSuccessful) {
+        // Update diagnostics for successful read
+        this.diagnostics.successfulReadCycles++;
+        this.diagnostics.lastSuccessTime = new Date().toISOString();
+        this.diagnostics.consecutiveFailures = 0;
+        
+        // Log performance issue
+        if (duration > 5000) {
+          this._logWarn('PERFORMANCE', `Read cycle took ${duration}ms - potential performance issue`);
+          if (this.fileLogger) {
+            this.fileLogger.logPerformanceIssue('readData', duration, 5000);
           }
+        }
+        
+        // Log success to FileLogger (statistics only, not every single read)
+        if (this.fileLogger && powerValue !== null) {
+          this.fileLogger.recordSuccessfulRead(powerValue);
+        }
+        
+        // Log warning if there were partial errors
+        if (readErrors > 0) {
+          this._logWarn('READ', `Read cycle completed with ${readErrors}/${this.sensors.length} sensor errors`);
+        }
 
-          if (sensor.id === "alarm_generic") {
-            this.eventDate = value;
-          } else if (sensor.id === "energy_detachment") {
-            this.remainingDisconnectionTime = value;
-          }
+        // Emit taskCompleted event
+        this.emit('taskCompleted', sensorDataArray);
 
-          this._log(`${sensor.id} - ${sensor.name}: ${value} ${sensor.unit || ''}`);
+        // Handle disconnection warning
+        if (this.eventDate !== undefined && this.remainingDisconnectionTime !== undefined) {
+          const disconnectionWarning = this.calculateDisconnectionWarning(
+            this.eventDate,
+            this.remainingDisconnectionTime
+          );
+          this._log(`Event Date: ${this.eventDate} - Disconnection warning: ${disconnectionWarning}`);
 
-          sensorDataArray.push({
-            id: sensor.id,
-            capability: sensor.capability,
-            name: sensor.name,
-            value: value,
-            unit: sensor.unit || ''
-          });
-
-          if (this.eventDate !== undefined && this.remainingDisconnectionTime !== undefined) {
-            const disconnectionWarning = this.calculateDisconnectionWarning(this.eventDate, this.remainingDisconnectionTime);
-            this._log(`Event Date: ${this.eventDate} - Disconnection warning: ${disconnectionWarning}`);
-
-            if (this.eventDate !== -1) {
-              this.homey.emit('disconnectionWarning', disconnectionWarning);
-              if (!this.warningTriggered) {
-                this.warningTriggered = true;
-                this.homey.emit('firstDisconnectionWarning', disconnectionWarning);
-              }
-            } else {
-              this.warningTriggered = false;
+          if (this.eventDate !== -1) {
+            // Calculate the real countdown: seconds remaining until disconnection
+            const now = Math.floor(Date.now() / 1000); // Current time in Unix seconds
+            const disconnectionTimestamp = this.eventDate + this.remainingDisconnectionTime;
+            const secondsRemaining = Math.max(0, disconnectionTimestamp - now);
+            
+            this.emit('disconnectionWarning', secondsRemaining);
+            
+            if (!this.warningTriggered) {
+              this.warningTriggered = true;
+              this.emit('firstDisconnectionWarning', secondsRemaining);
             }
           } else {
-            this.warningTriggered = false;
+            if (this.warningTriggered) {
+              this.warningTriggered = false;
+              this.emit('stopWarning');
+            }
           }
-        })
-        .catch(err => {
-          console.error(`Error reading ${sensor.name}:`, err);
-        });
-
-      promises.push(promise);
-    });
-
-    return Promise.all(promises).then(() => {
+        }
+      } else {
+        // All sensors failed
+        this.diagnostics.failedReadCycles++;
+        this.diagnostics.consecutiveFailures++;
+        this._logError('READ', `Read cycle failed - all ${this.sensors.length} sensors returned errors`, this.getDiagnostics());
+        
+        if (this.fileLogger) {
+          this.fileLogger.recordFailedRead(`All ${this.sensors.length} sensors failed`);
+        }
+      }
+      
       return sensorDataArray;
-    });
+      
+    } catch (err) {
+      // Unexpected error
+      this.diagnostics.failedReadCycles++;
+      this.diagnostics.lastFailTime = new Date().toISOString();
+      this.diagnostics.consecutiveFailures++;
+      this.diagnostics.lastError = err.message;
+      
+      this._logError('READ', `Unexpected error in readData: ${err.message}`, this.getDiagnostics());
+      
+      if (this.fileLogger) {
+        this.fileLogger.recordFailedRead(err.message);
+      }
+      
+      this.isConnected = false;
+      return sensorDataArray;
+      
+    } finally {
+      // Always reset isReading flag
+      this.isReading = false;
+    }
+  }
+
+  /**
+   * Reads a single sensor with timeout handling (HA pattern: isolated reads)
+   * @param {Object} sensor - The sensor configuration
+   * @returns {Promise<Object|null>} - Sensor data or null on error
+   */
+  async _readSingleSensor(sensor) {
+    let timeoutId = null;
+    
+    try {
+      // Create timeout promise
+      const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = this.homey.setTimeout(() => {
+          reject(new Error('Modbus read timeout'));
+        }, 3000);
+      });
+      
+      // Race between read and timeout
+      const data = await Promise.race([
+        this.client.readHoldingRegisters(sensor.address, sensor.count),
+        timeoutPromise
+      ]);
+      
+      // Cancel timeout on success
+      if (timeoutId !== null) {
+        this.homey.clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+      
+      // Parse value
+      let value;
+      if (sensor.type === "uint32") {
+        value = (data.data[0] << 16) | data.data[1];
+      } else {
+        value = data.data[0];
+      }
+      
+      return {
+        id: sensor.id,
+        capability: sensor.capability,
+        name: sensor.name,
+        value: value,
+        unit: sensor.unit || '',
+        type: sensor.type,
+        conversionFactor: sensor.conversionFactor
+      };
+      
+    } catch (err) {
+      // Cancel timeout if still active
+      if (timeoutId !== null) {
+        this.homey.clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+      
+      if (err.message === 'Modbus read timeout') {
+        this._logWarn('READ', `Timeout reading ${sensor.name} (address: ${sensor.address})`);
+      } else {
+        this._logError('READ', `Error reading ${sensor.name}: ${err.message}`);
+        this.diagnostics.lastError = err.message;
+        
+        // HA Pattern: Mark connection as potentially lost, but don't throw
+        // Next ensureConnected() will handle reconnection
+        this.isConnected = false;
+        
+        if (this.fileLogger) {
+          this.fileLogger.logConnectionStateChange('connected', 'disconnected', `read error: ${err.message}`);
+        }
+      }
+      
+      return null; // HA Pattern: Return null on error, don't throw
+    }
   }
 
 
@@ -185,26 +638,73 @@ class SinapsiConnect {
    * sinapsi.start();
    */
   start() {
+    this._logInfo('LIFECYCLE', 'Starting SinapsiConnect...');
+    // Start connection process; scheduler will be started by connectModbus() once connected
     this.connectModbus();
-    if (this.scheduler.isRunning) {
+    if (this.scheduler.isScheduled) {
       this.scheduler.stop();
     }
-    this.scheduler.start();
   }
 
   /**
    * Stops the Modbus connection and the task scheduler.
+   * @returns {Promise<void>}
    */
-  stop() {
-    this._log(`Stopping Modbus connection and task scheduler - client: ${this.client.isOpen} - scheduler: ${this.scheduler.isScheduled}`);
-    if (this.client.isOpen) {
-      this.client.close(() => {
-        this._log("Modbus connection closed.");
-      });
+  async stop() {
+    this._logInfo('LIFECYCLE', 'Stopping SinapsiConnect...', this.getDiagnostics());
+    
+    // Cancel connection health check interval
+    if (this.connectionCheckInterval) {
+      this.homey.clearInterval(this.connectionCheckInterval);
+      this.connectionCheckInterval = null;
     }
-    if (this.scheduler.isScheduled) {
+    
+    // Cancel all pending reconnection timeouts
+    this.reconnectTimeouts.forEach(id => this.homey.clearTimeout(id));
+    this.reconnectTimeouts = [];
+    
+    // Stop scheduler first
+    if (this.scheduler) {
       this.scheduler.stop();
+      this.scheduler = null; // Dereference for garbage collection
     }
+    
+    // Remove all EventEmitter listeners to prevent memory leaks
+    this.removeAllListeners();
+    
+    // Close Modbus connection
+    if (this.client) {
+      try {
+        if (this.client.isOpen) {
+          await new Promise((resolve, reject) => {
+            this.client.close((err) => {
+              if (err) {
+                console.error('Error closing Modbus connection:', err);
+                reject(err);
+              } else {
+                this._log('Modbus connection closed successfully');
+                resolve();
+              }
+            });
+          });
+        }
+      } catch (error) {
+        console.error('Failed to close Modbus connection:', error);
+      } finally {
+        // Force cleanup of Modbus client
+        if (this.client.destroy) {
+          try {
+            this.client.destroy();
+          } catch (e) {
+            // Ignore destroy errors
+          }
+        }
+        this.client = null; // Dereference for garbage collection
+      }
+    }
+    
+    this.isConnected = false;
+    this.isReading = false;
   }
 
   /**
@@ -212,15 +712,17 @@ class SinapsiConnect {
    * Stops the existing timer and starts a new one with the given IP.
    * @param {Object} homey - The Homey instance.
    * @param {string} ip - The IP address of the Modbus server.
-   * @param {number} [updateInterval=60000] - The interval in milliseconds for updating data.
+   * @param {number} [updateInterval=30000] - The interval in milliseconds for updating data.
    * @param {boolean} [showLog=false] - Whether to show log messages.
+   * @param {boolean} [showEnergyMonitoring=true] - Whether to include energy monitoring sensors.
+   * @param {Object} [fileLogger=null] - FileLogger instance for persistent logging.
    * @returns {SinapsiConnect} The SinapsiConnect instance.
    */
-  static manageInstance(homey, ip, updateInterval = 60000, showLog = false) {
+  static manageInstance(homey, ip, updateInterval = 30000, showLog = false, showEnergyMonitoring = true, fileLogger = null) {
     if (SinapsiConnect.instance) {
       SinapsiConnect.instance.stop();
     }
-    SinapsiConnect.instance = new SinapsiConnect(homey, ip, updateInterval, showLog);
+    SinapsiConnect.instance = new SinapsiConnect(homey, ip, updateInterval, showLog, showEnergyMonitoring, fileLogger);
     SinapsiConnect.instance.start();
     return SinapsiConnect.instance;
   }

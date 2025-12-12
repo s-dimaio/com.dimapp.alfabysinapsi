@@ -64,10 +64,21 @@
     </header>
 
     <div class="content-wrapper">
-        <!-- Nuovo campo di input per l'indirizzo IP o hostname -->
+        <!-- IP address or hostname input field -->
         <input type="text" id="ipInput" class="ip-input" placeholder="Inserisci IP o hostname" />
-        <!-- Messaggio di errore -->
+        <!-- Error message -->
         <div id="errorMessage" class="error-message"></div>
+
+        <!-- Checkbox for energy monitoring option -->
+        <div class="homey-form-group">
+            <fieldset class="homey-form-checkbox-set">
+                <label class="homey-form-checkbox">
+                    <input class="homey-form-checkbox-input" type="checkbox" id="showEnergyMonitoring" name="energy-monitoring" />
+                    <span class="homey-form-checkbox-checkmark"></span>
+                    <span class="homey-form-checkbox-text" data-i18n="pair.checkbox.energyMonitoring"></span>
+                </label>
+            </fieldset>
+        </div>
 
         <button onclick="getIpAddress()" class="homey-button-primary-full" data-i18n="pair.button"></button>
     </div>
@@ -75,24 +86,30 @@
 
 <script type="application/javascript">
 
-    Homey.on("ipError", () => {
+        Homey.on("ipError", () => {
 
         const errorMessage = document.getElementById('errorMessage');
-        errorMessage.textContent = Homey.__("pair.error.ipWrong");// 'Errore IP: Indirizzo IP non valido.';
+        // Show localized IP error message from Homey
+        errorMessage.textContent = Homey.__("pair.error.ipWrong");
         errorMessage.style.display = 'block';
 
     });
 
     function getIpAddress() {
         const ipInput = document.getElementById('ipInput').value.trim();
+        const showEnergyMonitoring = document.getElementById('showEnergyMonitoring').checked;
         const errorMessage = document.getElementById('errorMessage');
 
         if (ipInput === '') {
-            errorMessage.textContent = Homey.__("pair.error.ipEmpty"); // 'Errore: Il campo non può essere vuoto.';
+            // Show localized empty-field error message
+            errorMessage.textContent = Homey.__("pair.error.ipEmpty");
             errorMessage.style.display = 'block';
         } else {
             errorMessage.style.display = 'none';
-            Homey.emit('getIpAddress', ipInput);
+            Homey.emit('getIpAddress', { 
+                ip: ipInput, 
+                showEnergyMonitoring: showEnergyMonitoring 
+            });
         }
     }
 

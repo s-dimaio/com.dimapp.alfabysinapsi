@@ -1,74 +1,82 @@
 # Alfa by Sinapsi
 
-Homey app for Alfa by Sinapsi
+Homey app to read data from Alfa by Sinapsi power meters over Modbus TCP and expose measurements and alarms inside Homey.
 
-## Table of Contents
+## Summary
 
-- [Overview](#overview)
-- [Features](#features)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Contributing](#contributing)
-- [License](#license)
-
-## Overview
-
-Alfa by Sinapsi is a Homey app designed to connect and interact with Modbus of Alfa power meters. It allows you to read data from Modbus holding registers and process it within the Homey environment. The app can handle various sensors and emit events based on the data received.
+This app connects to Alfa meters using Modbus TCP (default port 502) and periodically reads configured holding registers. It updates Homey capabilities (power, cumulative energy, time-slot), emits disconnection warnings, and exposes Flow triggers for those events.
 
 ## Features
 
-- Connect to Alfa by Sinapsi using TCP.
-- Read data from Modbus holding registers.
-- Emit events for disconnection warnings.
-- Emit a special event for the first disconnection warning.
-- Log data and events for debugging purposes.
-- Manage a single instance of the connection.
+- Connect to Alfa devices via Modbus TCP.
+- Periodic polling of sensors (default 30s) using a scheduler.
+- Exposes capabilities:
+	- `measure_power` (instantaneous power, W)
+	- `meter_power.imported` (cumulative imported energy, kWh)
+	- `meter_power.exported` (cumulative exported energy, kWh)
+	- `energy_phase` (current time slot)
+	- `alarm_generic` (power disconnect alarm)
+- Emits Flow triggers:
+	- `disconnection_warning` (every warning; token: seconds)
+	- `first_disconnection_warning` (first warning only; token: seconds)
+	- `stop_warning` (warning ended)
+- Robust error handling and reconnection attempts on communication errors/timeouts.
 
-## Installation
+## How it works (internals)
 
-To get started with Alfa by Sinapsi, follow these steps:
+- The Modbus connection and periodic reads are handled by the `SinapsiConnect` class (`lib/SinapsiConnect.js`).
+- Periodic execution is driven by the `TaskScheduler` (`lib/TaskScheduler.js`) which avoids concurrent reads and counts consecutive errors for retry/stop logic.
+- Device-level integration and Flow triggers are wired in the Alfa device driver (see `drivers/alfa/device.js`).
 
-### Prerequisites
+## Installation (development)
 
-- Ensure you have Node.js and npm (Node Package Manager) installed on your system. You can download them from [Node.js official website](https://nodejs.org/).
-
-### Steps
-
-1. Clone the repository:
+1. Clone repository
 ```sh
 git clone https://github.com/yourusername/alfabysinapsi.git
-cd alfabysinapsi
+cd com.dimapp.alfabysinapsi
 ```
-
-2. Install the dependencies:
+2. Install dependencies:
 ```sh
 npm install
 ```
-
-3. Start the app in Homey Pro:
+3. Run in Homey dev environment:
 ```sh
 homey app run
 ```
 
-## Usage
+## Pairing and Configuration
 
-After installation, you can add your Echo devices to Homey:
+- During pairing the user provides the device IP/hostname via the pairing UI (`drivers/alfa/pair/alfa_pair.html`). The pairing view also includes a checkbox option to enable or disable monitoring of exported energy (energy input monitoring).
+- The IP is stored in device settings (`ipAddress`) and the `showEnergyMonitoring` preference is stored in the device store. When settings change the driver reinitializes the connection.
 
-1. Go to 'Devices' in the Homey app
-2. Click the '+' button to add a new device
-3. Select 'Alfa by Sinapsi' from the list of apps
-4. Follow the setup wizard to connect your Alfa power meter
+## Settings
 
-## Contributing
+- `ipAddress` — IP or hostname of the Alfa device (required).
+- Polling interval is configurable when creating the `SinapsiConnect` instance; default in code is 30000 ms (30s).
 
-If you would like to contribute to this project, please follow these steps:
+## Sensors configuration
 
-1. Fork the repository.
-2. Create a new branch for your feature or bugfix.
-3. Commit your changes and push the branch to your fork.
-4. Create a pull request with a description of your changes.
+Register addresses and sensor definitions are in `lib/config/config.js`. The app reads the configured registers (uint16 / uint32) and maps them to capabilities or internal values.
+
+## Events & Flows
+
+The app emits Homey events for disconnection warnings. These are translated to Flow triggers in the driver so users can build automations.
+
+## Troubleshooting
+
+- If readings stop:
+	- Check device IP (`ipAddress`) in device settings.
+	- Check Homey logs for Modbus communication errors (timeouts, socket errors).
+	- The connector implements reconnection attempts; verify device network availability.
+- For pairing/IP errors the pairing UI shows localized messages.
+
+## Development notes
+
+- Dependency: `modbus-serial` (see `package.json`).
+- The app protects against concurrent `readData()` calls (flag `isReading`) and prevents the scheduler from overlapping reads.
+- On communication errors the connector sets `isConnected = false` and attempts reconnection with backoff and a maximum number of attempts.
 
 ## License
 
-This project is released under the GNU License. For full details, please see the [LICENSE](LICENSE) file.
+This project is released under the GNU GPL v3. See LICENSE for details.
 
