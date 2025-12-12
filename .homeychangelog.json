@@ -3,8 +3,12 @@
     "en": "- Initial release",
     "it": "- Rilascio iniziale"
   },
-  "1.6.2": {
+  "1.6.3": {
     "en": "- Improved translations",
     "it": "- Traduzioni migliorate"
+  },
+  "1.6.4": {
+    "en": "- New app icon",
+    "it": "- Nuova icona dell'app"
   }
 }
