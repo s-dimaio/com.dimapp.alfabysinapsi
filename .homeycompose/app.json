@@ -1,6 +1,6 @@
 {
   "id": "com.dimapp.alfabysinapsi",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "compatibility": ">=5.0.0",
   "sdk": 3,
   "platforms": [
@@ -10,7 +10,7 @@
     "en": "Alfa by Sinapsi"
   },
   "description": {
-    "en": "Homey app for Alfa by Sinapsi power meter"
+    "en": "Monitor and automate your energy consumption in real-time"
   },
   "category": [
     "energy"

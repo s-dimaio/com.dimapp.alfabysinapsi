@@ -1,3 +1,3 @@
-Alfa by Sinapsi connette i contatori di energia Alfa a Homey tramite Modbus TCP. L'app legge valori quali potenza istantanea, energia cumulativa e informazioni di fase, rendendoli disponibili come capability in Homey e utilizzabili nelle Flow.
+Mantieni sotto controllo il consumo energetico con il monitoraggio in tempo reale del tuo contatore Alfa. Traccia la potenza istantanea, il consumo energetico cumulativo e le informazioni di fase direttamente da Homey.
 
-L'app esegue polling periodico del contatore (ogni 30 secondi), emette avvisi di disconnessione e fornisce trigger per le Flow (ad esempio avvisi per distacco di alimentazione o sovraccarico).
+Crea automazioni intelligenti che rispondono ai cambiamenti nel consumo, ricevi avvisi quando il consumo diventa eccessivo e vieni notificato di potenziali disconnessioni prima che accadano. Perfetto per gestire i costi energetici e prevenire interruzioni impreviste.

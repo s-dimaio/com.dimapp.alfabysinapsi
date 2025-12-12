@@ -1,3 +1,0 @@
-Alfa by Sinapsi connects Alfa power meters to Homey using Modbus TCP. The app reads measurements such as instantaneous power, cumulative energy and phase information, and makes them available as Homey capabilities for use in the Homey app and Flows.
-
-The app polls the meter periodically (30 seconds), emits disconnection warnings and provides Flow triggers for automations (for example alerts on power loss or high usage).

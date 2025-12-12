@@ -9,7 +9,7 @@ This app connects to Alfa meters using Modbus TCP (default port 502) and periodi
 ## Features
 
 - Connect to Alfa devices via Modbus TCP.
-- Periodic polling of sensors (default 30s) using a scheduler.
+- Periodic polling of sensors (15s) using a scheduler.
 - Exposes capabilities:
 	- `measure_power` (instantaneous power, W)
 	- `meter_power.imported` (cumulative imported energy, kWh)
