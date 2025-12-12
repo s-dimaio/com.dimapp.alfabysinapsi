@@ -1,6 +1,6 @@
 {
   "id": "com.dimapp.alfabysinapsi",
-  "version": "1.6.1",
+  "version": "1.6.2",
   "compatibility": ">=5.0.0",
   "sdk": 3,
   "platforms": [
@@ -10,7 +10,8 @@
     "en": "Alfa by Sinapsi"
   },
   "description": {
-    "en": "Monitor and automate your energy consumption in real-time"
+    "en": "Monitor and automate your energy consumption in real-time",
+    "it": "Monitora e automatizza il tuo consumo energetico in tempo reale"
   },
   "category": [
     "energy"
@@ -46,6 +47,20 @@
     "deleteAllLogs": {
       "method": "DELETE",
       "path": "/log/all"
+    }
+  },
+  "tags": {
+    "en": [
+      "Alfa",
+      "Sinapsi",
+      "Energy Meter"
+    ]
+  },
+  "contributing": {
+    "donate": {
+      "paypal": {
+        "username": "sdimaio77"
+      }
     }
   }
 }
