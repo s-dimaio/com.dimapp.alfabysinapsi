@@ -10,5 +10,9 @@
   "1.6.4": {
     "en": "- New app icon",
     "it": "- Nuova icona dell'app"
+  },
+  "1.6.5": {
+    "en": "- Fixed an issue with the countdown of seconds remaining before disconnection",
+    "it": "- Sistemato un problema con il conteggio dei secondi rimanenti prima della disconnessione"
   }
 }
