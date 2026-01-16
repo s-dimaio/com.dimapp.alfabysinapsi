@@ -15,7 +15,7 @@ function getLogFilePath(index) {
   if (index === 0) {
     return LOG_FILE;
   }
-  return `${LOG_FILE}.${index}`;
+  return `/userdata/alfa_debug.${index}.log`;
 }
 
 /**
@@ -27,7 +27,7 @@ function getLogFileName(index) {
   if (index === 0) {
     return 'alfa_debug.log';
   }
-  return `alfa_debug.log.${index}`;
+  return `alfa_debug.${index}.log`;
 }
 
 module.exports = {

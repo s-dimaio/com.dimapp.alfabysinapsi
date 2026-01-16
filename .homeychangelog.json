@@ -18,5 +18,17 @@
   "1.6.6": {
     "en": "- Fixed an issue with the countdown of seconds remaining before disconnection",
     "it": "- Sistemato un problema con il conteggio dei secondi rimanenti prima della disconnessione"
+  },
+  "1.6.7": {
+    "en": "- Updated app images",
+    "it": "- Aggiornate le immagini dell'app"
+  },
+  "1.6.8": {
+    "en": "- Minor bug fixes",
+    "it": "- Correzioni di bug minori"
+  },
+  "1.6.9": {
+    "en": "Improved device disconnection handling",
+    "it": "Migliorata la gestione delle disconnessioni del dispositivo"
   }
 }

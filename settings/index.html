@@ -1,350 +1,337 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Alfa by Sinapsi Settings</title>
   <script type="text/javascript" src="/homey.js" data-origin="settings"></script>
   <style>
-    /* Additional custom styles for elements not covered by Homey classes */
-    .warning-box {
-      background: #fff3cd;
-      border: 1px solid #ffc107;
-      border-radius: 6px;
-      padding: 10px 12px;
-      margin-top: 12px;
-      font-size: 12px;
-      color: #856404;
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     }
-    .log-section {
-      margin-top: 16px;
-      padding-top: 16px;
-      border-top: 1px solid var(--homey-border-color, #eee);
-    }
-    .log-summary {
-      font-size: 13px;
-      color: var(--homey-text-color-light, #666);
-      margin-bottom: 12px;
-    }
-    .log-summary .total-size {
+
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 12px 20px;
+      background-color: #28a745;
+      color: white;
+      border-radius: 4px;
+      font-size: 14px;
       font-weight: 500;
-      color: var(--homey-text-color, #333);
-    }
-    .log-file-list {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-    .log-file-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px;
-      background: var(--homey-background-secondary, #f5f5f5);
-      border-radius: 8px;
-      border: 1px solid var(--homey-border-color, #eee);
-    }
-    .log-file-info {
-      flex: 1;
-      min-width: 0;
-    }
-    .log-file-name {
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--homey-text-color, #333);
-      word-break: break-all;
-    }
-    .log-file-meta {
-      font-size: 11px;
-      color: var(--homey-text-color-light, #666);
-      margin-top: 4px;
-    }
-    .log-file-actions {
-      display: flex;
-      gap: 8px;
-      margin-left: 12px;
-      flex-shrink: 0;
-    }
-    .no-log {
-      font-size: 13px;
-      color: var(--homey-text-color-light, #666);
-      font-style: italic;
-    }
-    .hidden {
-      display: none;
-    }
-    .save-status {
-      text-align: center;
-      padding: 8px;
-      font-size: 12px;
-      color: #4CAF50;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
       opacity: 0;
-      transition: opacity 0.3s;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
+      z-index: 1000;
     }
-    .save-status.visible {
+
+    .toast.show {
       opacity: 1;
     }
-    .delete-all-section {
-      margin-top: 12px;
-      padding-top: 12px;
-      border-top: 1px dashed var(--homey-border-color, #eee);
+
+    .toast.success {
+      background-color: #28a745;
+    }
+
+    .toast.error {
+      background-color: #dc3545;
+    }
+
+    .toast.warning {
+      background-color: #ffc107;
+      color: #856404;
     }
   </style>
 </head>
 <body>
+
+  <header class="homey-header">
+    <h1 class="homey-title" data-i18n="settings.debug.title">Debug</h1>
+  </header>
+
   <form class="homey-form">
     <fieldset class="homey-form-fieldset">
       <legend class="homey-form-legend" data-i18n="settings.debug.title">Debug</legend>
-      
+
       <div class="homey-form-group">
         <fieldset class="homey-form-checkbox-set">
+          <legend class="homey-form-checkbox-set-title" data-i18n="settings.debug.enableFileLogging.title">Enable File Logging</legend>
+
           <label class="homey-form-checkbox">
-            <input class="homey-form-checkbox-input" type="checkbox" id="enableFileLogging" name="enableFileLogging"/>
+            <input class="homey-form-checkbox-input" type="checkbox" id="enableFileLogging" name="enableFileLogging" />
             <span class="homey-form-checkbox-checkmark"></span>
             <span class="homey-form-checkbox-text" data-i18n="settings.debug.enableFileLogging.title">Enable File Logging</span>
           </label>
         </fieldset>
-        <p class="homey-subtitle" data-i18n="settings.debug.enableFileLogging.description">
-          Write debug logs to a local file for troubleshooting. Disable in production to reduce resource usage.
-        </p>
+        <p style="margin-top: 8px; font-size: 14px; color: #666; line-height: 1.5;" data-i18n="settings.debug.enableFileLogging.description">Write debug logs to a local file for troubleshooting. Disable in production to reduce resource usage.</p>
+
+        <div style="margin-top: 16px; padding: 16px; background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 4px;">
+          <p style="margin: 0; font-size: 14px; color: #856404; line-height: 1.5;" data-i18n="settings.debug.restartWarning">Changes to this setting require an app restart to take effect.</p>
+        </div>
       </div>
-      
-      <div class="warning-box">
-        <span data-i18n="settings.debug.restartWarning">Changes to this setting require an app restart to take effect.</span>
-      </div>
-      
+
       <!-- Log files section -->
-      <div class="log-section">
-        <div id="logExists" class="hidden">
-          <div class="log-summary">
-            <span data-i18n="settings.debug.totalSize">Total size:</span>
-            <span id="totalSize" class="total-size"></span>
-            <span id="fileCount"></span>
-          </div>
-          
-          <div id="logFileList" class="log-file-list">
-            <!-- Log files will be dynamically inserted here -->
-          </div>
-          
-          <div id="deleteAllSection" class="delete-all-section hidden">
-            <button type="button" class="homey-button-danger-small" id="btnDeleteAll" data-i18n="settings.debug.deleteAll">Delete All Logs</button>
-          </div>
-        </div>
+      <div id="log-files" style="margin-top: 16px; display: none;">
+        <h3 style="margin: 16px 0 12px 0; font-size: 16px; font-weight: 600;"><span data-i18n="settings.debug.logFile">Log file:</span> <span id="fileCount"></span></h3>
+        <div id="files-list" style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 12px;"></div>
         
-        <div id="noLog" class="no-log hidden" data-i18n="settings.debug.noLogFile">
-          No log file found. Enable file logging and restart the app to start logging.
+        <div id="deleteAllSection" style="margin-top: 12px; padding-top: 12px; border-top: 1px dashed #ddd; display: none;">
+          <button type="button" class="homey-button-danger-small" id="btnDeleteAll" data-i18n="settings.debug.deleteAll">Delete All Logs</button>
         </div>
       </div>
+
+      <div id="noLog" style="margin-top: 16px; font-size: 14px; color: #666; font-style: italic; display: none;" data-i18n="settings.debug.noLogFile">No log file found. Enable file logging and restart the app to start logging.</div>
+
     </fieldset>
   </form>
-  
-  <div class="save-status" id="saveStatus" data-i18n="settings.saved">Settings saved</div>
+
+  <!-- Toast notification -->
+  <div id="toast" class="toast">✓ Saved</div>
 
   <script type="text/javascript">
-    function onHomeyReady(Homey) {
-      const enableFileLoggingEl = document.getElementById('enableFileLogging');
-      const saveStatusEl = document.getElementById('saveStatus');
-      const logExistsEl = document.getElementById('logExists');
-      const noLogEl = document.getElementById('noLog');
-      const totalSizeEl = document.getElementById('totalSize');
+    function onHomeyReady(homeyInstance) {
+      const Homey = homeyInstance;
+
+      // Get elements
+      const checkbox = document.getElementById('enableFileLogging');
+      const logFilesDiv = document.getElementById('log-files');
+      const noLogDiv = document.getElementById('noLog');
+      const filesList = document.getElementById('files-list');
       const fileCountEl = document.getElementById('fileCount');
-      const logFileListEl = document.getElementById('logFileList');
       const deleteAllSectionEl = document.getElementById('deleteAllSection');
       const btnDeleteAll = document.getElementById('btnDeleteAll');
-      
-      // Load current setting
-      Homey.get('enableFileLogging', (err, value) => {
-        if (err) return Homey.alert(err);
-        enableFileLoggingEl.checked = value === true;
+
+      // Load current settings - use get with callback for async
+      Homey.get('enableFileLogging', function (err, value) {
+        if (err) {
+          console.error('Error loading enableFileLogging setting:', err);
+          checkbox.checked = false;
+          return;
+        }
+
+        console.log('Loaded enableFileLogging setting:', value, typeof value);
+
+        // Set checkbox state based on saved value
+        if (value === true || value === 'true') {
+          checkbox.checked = true;
+        } else {
+          checkbox.checked = false;
+        }
       });
-      
+
+      // Auto-save on checkbox change
+      checkbox.addEventListener('change', function () {
+        try {
+          const isEnabled = checkbox.checked;
+
+          console.log('Saving enableFileLogging:', isEnabled);
+
+          // Save setting
+          Homey.set('enableFileLogging', isEnabled, function (err) {
+            if (err) {
+              console.error('Failed to save settings:', err);
+              showToast(Homey.__('settings.debug.error') || 'Error saving settings', 'error');
+              return;
+            }
+
+            console.log('Debug setting saved successfully:', isEnabled);
+
+            // Show toast notification
+            showToast(Homey.__('settings.saved') || 'Settings saved', 'success');
+          });
+
+        } catch (error) {
+          console.error('Failed to save settings:', error);
+          showToast('Error saving settings: ' + error.message, 'error');
+        }
+      });
+
+      // Enhanced toast notification function with color support
+      function showToast(message, type = 'success') {
+        const toast = document.getElementById('toast');
+        toast.textContent = message;
+        
+        // Remove existing type classes
+        toast.classList.remove('success', 'error', 'warning');
+        
+        // Add appropriate type class
+        toast.classList.add(type);
+        toast.classList.add('show');
+
+        setTimeout(() => {
+          toast.classList.remove('show');
+        }, 3000);
+      }
+
       // Format date for display
       function formatDate(isoString) {
         const date = new Date(isoString);
         return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
       }
-      
-      // Create a log file item element
-      function createLogFileItem(file) {
-        const item = document.createElement('div');
-        item.className = 'log-file-item';
-        item.dataset.index = file.index;
-        
-        item.innerHTML = `
-          <div class="log-file-info">
-            <div class="log-file-name">${file.name}</div>
-            <div class="log-file-meta">${file.sizeFormatted} • ${formatDate(file.modified)}</div>
-          </div>
-          <div class="log-file-actions">
-            <button type="button" class="homey-button-secondary-small" data-action="download" data-index="${file.index}">Download</button>
-            <button type="button" class="homey-button-danger-small" data-action="delete" data-index="${file.index}">Delete</button>
-          </div>
-        `;
-        
-        return item;
-      }
-      
-      // Check log file status
-      function checkLogStatus() {
-        Homey.api('GET', '/log/status', null, (err, result) => {
+
+      // Function to load and display files list
+      function loadFilesList() {
+        Homey.api('GET', '/log/status', null, function(err, result) {
           if (err) {
-            console.error('Error checking log status:', err);
-            noLogEl.classList.remove('hidden');
-            logExistsEl.classList.add('hidden');
+            console.error('Failed to load files:', err);
+            noLogDiv.style.display = 'block';
+            logFilesDiv.style.display = 'none';
             return;
           }
-          
+
           if (result.exists && result.files && result.files.length > 0) {
-            logExistsEl.classList.remove('hidden');
-            noLogEl.classList.add('hidden');
+            logFilesDiv.style.display = 'block';
+            noLogDiv.style.display = 'none';
             
-            // Update summary
-            totalSizeEl.textContent = result.totalSizeFormatted;
-            fileCountEl.textContent = `(${result.files.length} ${result.files.length === 1 ? 'file' : 'files'})`;
+            // Update file count
+            fileCountEl.textContent = `(${result.files.length} ${result.files.length === 1 ? 'file' : 'files'} - ${result.totalSizeFormatted})`;
             
-            // Clear and rebuild file list
-            logFileListEl.innerHTML = '';
-            result.files.forEach(file => {
-              logFileListEl.appendChild(createLogFileItem(file));
+            let html = '';
+            result.files.forEach(function(file, index) {
+              const date = formatDate(file.modified);
+              const isLast = index === result.files.length - 1;
+              const borderStyle = isLast ? '' : 'border-bottom: 1px solid #eee;';
+              
+              html += '<div class="log-file-item" data-index="' + file.index + '" style="padding: 8px; ' + borderStyle + ' display: flex; justify-content: space-between; align-items: center;">';
+              html += '  <div>';
+              html += '    <div style="font-weight: 500;">' + file.name + '</div>';
+              html += '    <div style="font-size: 12px; color: #666;">' + date + ' • ' + file.sizeFormatted + '</div>';
+              html += '  </div>';
+              html += '  <div style="display: flex; gap: 8px;">';
+              html += '    <button type="button" class="download-file homey-button-secondary-small" data-index="' + file.index + '" data-i18n="settings.debug.download">Download</button>';
+              html += '    <button type="button" class="delete-file homey-button-danger-small" data-index="' + file.index + '" data-i18n="settings.debug.delete">Delete</button>';
+              html += '  </div>';
+              html += '</div>';
             });
             
+            filesList.innerHTML = html;
+            
+            // Apply translations to dynamically created elements
+            const dynamicElements = filesList.querySelectorAll('[data-i18n]');
+            dynamicElements.forEach(function(el) {
+              const key = el.getAttribute('data-i18n');
+              el.textContent = Homey.__(key);
+            });
+
             // Show "Delete All" button only if more than 1 file
             if (result.files.length > 1) {
-              deleteAllSectionEl.classList.remove('hidden');
+              deleteAllSectionEl.style.display = 'block';
             } else {
-              deleteAllSectionEl.classList.add('hidden');
+              deleteAllSectionEl.style.display = 'none';
             }
           } else {
-            noLogEl.classList.remove('hidden');
-            logExistsEl.classList.add('hidden');
+            noLogDiv.style.display = 'block';
+            logFilesDiv.style.display = 'none';
           }
         });
       }
-      
-      checkLogStatus();
-      
-      // Save on change
-      enableFileLoggingEl.addEventListener('change', () => {
-        const value = enableFileLoggingEl.checked;
-        Homey.set('enableFileLogging', value, (err) => {
-          if (err) return Homey.alert(err);
-          
-          // Show save confirmation
-          saveStatusEl.textContent = Homey.__('settings.saved') || 'Settings saved';
-          saveStatusEl.classList.add('visible');
-          setTimeout(() => {
-            saveStatusEl.classList.remove('visible');
-          }, 2000);
-        });
-      });
-      
-      // Handle download action for a specific file
-      function downloadFile(index, button) {
-        button.disabled = true;
-        
-        Homey.api('GET', `/log/download/${index}`, null, (err, result) => {
-          button.disabled = false;
-          
-          if (err) {
-            Homey.alert('Error downloading log: ' + err);
-            return;
-          }
-          
-          // result is directly the URL string
-          Homey.openURL(result);
-        });
-      }
-      
-      // Handle delete action for a specific file
+
+      // Function to delete a file
       function deleteFile(index, button) {
-        const fileName = button.closest('.log-file-item').querySelector('.log-file-name').textContent;
+        const fileName = button.closest('.log-file-item').querySelector('div > div').textContent;
+        const confirmMsg = (Homey.__('settings.debug.confirmDelete') || 'Delete "{{filename}}"?').replace('{{filename}}', fileName);
         
-        Homey.confirm(`Delete "${fileName}"?`, 'warning', (err, confirmed) => {
+        Homey.confirm(confirmMsg, 'warning', function(err, confirmed) {
           if (err) return;
           if (!confirmed) return;
           
           button.disabled = true;
           
-          Homey.api('DELETE', `/log/${index}`, null, (err, result) => {
+          Homey.api('DELETE', '/log/' + index, null, function(err, result) {
             button.disabled = false;
             
             if (err) {
-              Homey.alert('Error deleting log: ' + err);
+              showToast((Homey.__('settings.debug.errorDeleting') || 'Error deleting log') + ': ' + err, 'error');
               return;
             }
             
             if (!result.success) {
-              Homey.alert(result.error || 'Failed to delete log');
+              showToast(result.error || (Homey.__('settings.debug.failedDelete') || 'Failed to delete log'), 'error');
               return;
             }
             
-            // Refresh status
-            checkLogStatus();
+            // Refresh list after delete
+            loadFilesList();
             
             // Show confirmation
-            showStatus(`"${result.deletedFile}" deleted`);
+            showToast(Homey.__('settings.debug.fileDeleted') || 'File deleted', 'success');
           });
         });
       }
-      
+
       // Event delegation for file actions
-      logFileListEl.addEventListener('click', (e) => {
-        const button = e.target.closest('button[data-action]');
-        if (!button) return;
+      filesList.addEventListener('click', function(e) {
+        const downloadBtn = e.target.closest('.download-file');
+        const deleteBtn = e.target.closest('.delete-file');
         
-        const action = button.dataset.action;
-        const index = button.dataset.index;
-        
-        if (action === 'download') {
-          downloadFile(index, button);
-        } else if (action === 'delete') {
-          deleteFile(index, button);
+        if (downloadBtn) {
+          const index = downloadBtn.getAttribute('data-index');
+          downloadBtn.disabled = true;
+          
+          Homey.api('GET', '/log/download/' + index, null, function(err, result) {
+            downloadBtn.disabled = false;
+            
+            if (err) {
+              showToast((Homey.__('settings.debug.errorDownloading') || 'Error downloading log') + ': ' + err, 'error');
+              return;
+            }
+            
+            // result is directly the URL string
+            Homey.openURL(result);
+          });
+        } else if (deleteBtn) {
+          const index = deleteBtn.getAttribute('data-index');
+          deleteFile(index, deleteBtn);
         }
       });
-      
+
       // Delete all logs
-      btnDeleteAll.addEventListener('click', () => {
-        Homey.confirm('Delete all log files?', 'warning', (err, confirmed) => {
+      btnDeleteAll.addEventListener('click', function() {
+        const confirmMsg = Homey.__('settings.debug.confirmDeleteAll') || 'Delete all log files?';
+        
+        Homey.confirm(confirmMsg, 'warning', function(err, confirmed) {
           if (err) return;
           if (!confirmed) return;
           
           btnDeleteAll.disabled = true;
           
-          Homey.api('DELETE', '/log/all', null, (err, result) => {
+          Homey.api('DELETE', '/log/all', null, function(err, result) {
             btnDeleteAll.disabled = false;
             
             if (err) {
-              Homey.alert('Error deleting logs: ' + err);
+              showToast((Homey.__('settings.debug.errorDeleting') || 'Error deleting logs') + ': ' + err, 'error');
               return;
             }
             
             if (!result.success) {
-              Homey.alert(result.error || 'Failed to delete logs');
+              showToast(result.error || (Homey.__('settings.debug.failedDelete') || 'Failed to delete logs'), 'error');
               return;
             }
             
             // Refresh status
-            checkLogStatus();
+            loadFilesList();
             
             // Show confirmation
-            showStatus(`${result.deletedCount} log file(s) deleted`);
+            const msg = result.deletedCount + ' ' + (Homey.__('settings.debug.filesDeleted') || 'log file(s) deleted');
+            showToast(msg, 'success');
           });
         });
       });
-      
-      // Show status message
-      function showStatus(message) {
-        saveStatusEl.textContent = message;
-        saveStatusEl.classList.add('visible');
-        setTimeout(() => {
-          saveStatusEl.classList.remove('visible');
-        }, 2000);
-      }
-      
-      // Apply translations
+
+      // Load files list on page load
+      loadFilesList();
+
+      // Tell Homey we're ready
       Homey.ready();
     }
   </script>
+
 </body>
+
 </html>

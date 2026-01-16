@@ -16,8 +16,10 @@
   },
   "error": {
     "generic": "Se l'errore persiste prova a ricollegare il dispositivo",
-    "ipWrong": "Indirizzo IP o Hostname non validi. Modificali dalle Impostazioni",
-    "ipEmpty": "L'indirizzo IP non può essere vuoto. Inseriscilo dalle Impostazioni"
+    "ipWrong": "L'indirizzo IP non è corretto oppure il dispositivo è offline",
+    "ipEmpty": "L'indirizzo IP non può essere vuoto. Inseriscilo dalle Impostazioni",
+    "connectionLost": "Dispositivo non raggiungibile. Verifica che sia acceso e connesso alla rete.",
+    "maxReconnectAttempts": "Impossibile riconnettersi al dispositivo. Quando Alfa tornerà online, riavvia l'app dalle Impostazioni di Homey."
   },
   "settings": {
     "debug": {
@@ -26,7 +28,7 @@
         "title": "Abilita Log su File",
         "description": "Scrive i log di debug su un file locale per la risoluzione dei problemi. Disabilita in produzione per ridurre l'uso delle risorse."
       },
-      "restartWarning": "Le modifiche a questa impostazione richiedono un riavvio dell'app per avere effetto.",
+      "restartWarning": "⚠️ Le modifiche a questa impostazione richiedono un riavvio dell'app per avere effetto.",
       "logFile": "File di log:",
       "download": "Scarica",
       "delete": "Elimina",

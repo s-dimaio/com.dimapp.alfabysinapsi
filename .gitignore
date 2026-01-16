@@ -6,3 +6,5 @@
 /image/
 /log
 bck/
+*.code-workspace
+*.ps1

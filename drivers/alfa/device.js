@@ -20,6 +20,9 @@ module.exports = class AlfaDevice extends Homey.Device {
     this.sinapsi.removeAllListeners('disconnectionWarning');
     this.sinapsi.removeAllListeners('firstDisconnectionWarning');
     this.sinapsi.removeAllListeners('stopWarning');
+    this.sinapsi.removeAllListeners('connectionLost');
+    this.sinapsi.removeAllListeners('connectionRestored');
+    this.sinapsi.removeAllListeners('maxReconnectAttemptsReached');
 
     // Store listener references for cleanup
     this.onTaskCompleted = async (sensorDataArray) => {
@@ -136,11 +139,32 @@ module.exports = class AlfaDevice extends Homey.Device {
         .catch(this.error);
     };
 
+    this.onConnectionLost = (reason) => {
+      this.error(`Modbus connection lost: ${reason}`);
+      this._fileLog('error', 'DEVICE', `Modbus connection lost: ${reason}`);
+      this.setUnavailable(this.homey.__('error.connectionLost')).catch(this.error);
+    };
+
+    this.onConnectionRestored = () => {
+      this.log('Modbus connection restored');
+      this._fileLog('info', 'DEVICE', 'Modbus connection restored');
+      this.setAvailable().catch(this.error);
+    };
+
+    this.onMaxReconnectAttemptsReached = () => {
+      this.error('Maximum reconnection attempts reached. App restart required.');
+      this._fileLog('error', 'DEVICE', 'Maximum reconnection attempts reached. App restart required.');
+      this.setUnavailable(this.homey.__('error.maxReconnectAttempts')).catch(this.error);
+    };
+
     // Register all listeners on SinapsiConnect instance
     this.sinapsi.on('taskCompleted', this.onTaskCompleted);
     this.sinapsi.on('disconnectionWarning', this.onDisconnectionWarning);
     this.sinapsi.on('firstDisconnectionWarning', this.onFirstDisconnectionWarning);
     this.sinapsi.on('stopWarning', this.onStopWarning);
+    this.sinapsi.on('connectionLost', this.onConnectionLost);
+    this.sinapsi.on('connectionRestored', this.onConnectionRestored);
+    this.sinapsi.on('maxReconnectAttemptsReached', this.onMaxReconnectAttemptsReached);
     
     this._fileLog('info', 'DEVICE', 'All listeners registered successfully');
   }
@@ -405,6 +429,15 @@ module.exports = class AlfaDevice extends Homey.Device {
       if (this.onStopWarning) {
         this.sinapsi.removeListener('stopWarning', this.onStopWarning);
       }
+      if (this.onConnectionLost) {
+        this.sinapsi.removeListener('connectionLost', this.onConnectionLost);
+      }
+      if (this.onConnectionRestored) {
+        this.sinapsi.removeListener('connectionRestored', this.onConnectionRestored);
+      }
+      if (this.onMaxReconnectAttemptsReached) {
+        this.sinapsi.removeListener('maxReconnectAttemptsReached', this.onMaxReconnectAttemptsReached);
+      }
       
       await this.sinapsi.stop();
       this.sinapsi = null;
@@ -415,6 +448,9 @@ module.exports = class AlfaDevice extends Homey.Device {
     this.onDisconnectionWarning = null;
     this.onFirstDisconnectionWarning = null;
     this.onStopWarning = null;
+    this.onConnectionLost = null;
+    this.onConnectionRestored = null;
+    this.onMaxReconnectAttemptsReached = null;
     
     // Cleanup FileLogger
     if (this.fileLogger) {

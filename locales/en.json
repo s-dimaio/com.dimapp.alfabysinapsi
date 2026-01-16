@@ -16,8 +16,10 @@
   },
   "error": {
     "generic": "Error: if the error persists try reconnecting the device",
-    "ipWrong": "Error: invalid IP address or Hostname. Change them from the Settings",
-    "ipEmpty": "Error: the field cannot be empty. Insert it from the Settings"
+    "ipWrong": "Error: invalid IP address or device offline",
+    "ipEmpty": "Error: the field cannot be empty. Insert it from the Settings",
+    "connectionLost": "Device unreachable. Check that it is powered on and connected to the network.",
+    "maxReconnectAttempts": "Unable to reconnect to device. When Alfa comes back online, restart the app from Homey Settings."
   },
   "settings": {
     "debug": {
@@ -26,7 +28,7 @@
         "title": "Enable File Logging",
         "description": "Write debug logs to a local file for troubleshooting. Disable in production to reduce resource usage."
       },
-      "restartWarning": "Changes to this setting require an app restart to take effect.",
+      "restartWarning": "⚠️ Changes to this setting require an app restart to take effect.",
       "logFile": "Log file:",
       "download": "Download",
       "delete": "Delete",

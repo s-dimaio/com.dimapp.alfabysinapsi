@@ -18,14 +18,14 @@
       }
     },
     "meter_power.imported": {
-      "decimals": 3,
+      "decimals": 2,
       "title": {
         "en": "Imported energy",
         "it": "Energia prelevata"
       }
     },
     "meter_power.exported": {
-      "decimals": 3,
+      "decimals": 2,
       "title": {
         "en": "Exported energy",
         "it": "Energia immessa"
